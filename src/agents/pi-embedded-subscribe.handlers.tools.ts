@@ -280,7 +280,7 @@ export function handleToolExecutionUpdate(
   const toolName = normalizeToolName(String(evt.toolName));
   const toolCallId = String(evt.toolCallId);
   const partial = evt.partialResult;
-  const sanitized = sanitizeToolResult(partial);
+  const sanitized = sanitizeToolResult(partial, ctx.secretScrub);
   emitAgentEvent({
     runId: ctx.params.runId,
     stream: "tool",
@@ -316,7 +316,7 @@ export async function handleToolExecutionEnd(
   const isError = Boolean(evt.isError);
   const result = evt.result;
   const isToolError = isError || isToolResultError(result);
-  const sanitizedResult = sanitizeToolResult(result);
+  const sanitizedResult = sanitizeToolResult(result, ctx.secretScrub);
   const toolStartKey = buildToolStartKey(runId, toolCallId);
   const startData = toolStartData.get(toolStartKey);
   toolStartData.delete(toolStartKey);

@@ -51,6 +51,7 @@ import {
 import { createPreparedEmbeddedPiSettingsManager } from "../pi-project-settings.js";
 import { createOpenClawCodingTools } from "../pi-tools.js";
 import { resolveSandboxContext } from "../sandbox.js";
+import { createSensitivePathGuard } from "../sensitive-path-guard.js";
 import { repairSessionFileIfNeeded } from "../session-file-repair.js";
 import { guardSessionManager } from "../session-tool-result-guard-wrapper.js";
 import { sanitizeToolUseResultPairing } from "../session-transcript-repair.js";
@@ -416,6 +417,9 @@ export async function compactEmbeddedPiSessionDirect(
         : model;
 
     const runAbortController = new AbortController();
+    const sensitivePathGuard = createSensitivePathGuard(
+      params.config?.security?.sensitivePathGuard,
+    );
     const toolsRaw = createOpenClawCodingTools({
       exec: {
         elevated: params.bashElevated,
@@ -439,6 +443,7 @@ export async function compactEmbeddedPiSessionDirect(
       modelId,
       modelContextWindowTokens: ctxInfo.tokens,
       modelAuthMode: resolveModelAuthMode(model.provider, params.config),
+      sensitivePathGuard,
     });
     const tools = sanitizeToolsForGoogle({
       tools: supportsModelTools(model) ? toolsRaw : [],

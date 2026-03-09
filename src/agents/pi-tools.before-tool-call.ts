@@ -3,6 +3,7 @@ import type { SessionState } from "../logging/diagnostic-session-state.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
 import { getGlobalHookRunner } from "../plugins/hook-runner-global.js";
 import { isPlainObject } from "../utils.js";
+import type { SensitivePathGuard } from "./sensitive-path-guard.js";
 import { normalizeToolName } from "./tool-policy.js";
 import type { AnyAgentTool } from "./tools/common.js";
 
@@ -13,6 +14,8 @@ export type HookContext = {
   sessionId?: string;
   runId?: string;
   loopDetection?: ToolLoopDetectionConfig;
+  /** Optional sensitive path guard for blocking reads of credential files. */
+  sensitivePathGuard?: SensitivePathGuard;
 };
 
 type HookOutcome = { blocked: true; reason: string } | { blocked: false; params: unknown };
@@ -145,6 +148,40 @@ export async function runBeforeToolCallHook(args: {
     }
 
     recordToolCall(sessionState, toolName, params, args.toolCallId, args.ctx.loopDetection);
+  }
+
+  // Core sensitive path guard — runs before plugin hooks.
+  if (args.ctx?.sensitivePathGuard) {
+    const { extractPathFromToolCall, execCommandReferencesSensitivePath } =
+      await import("./sensitive-path-guard.js");
+    const filePath = extractPathFromToolCall(toolName, params);
+    if (filePath) {
+      // For exec-style tools, check if command references sensitive paths.
+      const normalizedName = toolName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+      if (normalizedName === "exec" || normalizedName === "shell" || normalizedName === "bash") {
+        const execReason = execCommandReferencesSensitivePath(
+          filePath,
+          args.ctx.sensitivePathGuard,
+        );
+        if (execReason) {
+          log.warn(`Blocked ${toolName}: command references sensitive path (${execReason})`);
+          return {
+            blocked: true,
+            reason: `Blocked: command references sensitive path (${execReason})`,
+          };
+        }
+      } else {
+        // File tool — check the exact path.
+        const reason = args.ctx.sensitivePathGuard.getSensitivePathReason(filePath);
+        if (reason) {
+          log.warn(`Blocked ${toolName}: sensitive path ${filePath} (${reason})`);
+          return {
+            blocked: true,
+            reason: `Blocked: access to sensitive path (${reason})`,
+          };
+        }
+      }
+    }
   }
 
   const hookRunner = getGlobalHookRunner();

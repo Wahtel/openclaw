@@ -1,6 +1,7 @@
 import { getChannelPlugin, normalizeChannelId } from "../channels/plugins/index.js";
 import { normalizeTargetForProvider } from "../infra/outbound/target-normalization.js";
 import { splitMediaFromOutput } from "../media/parse.js";
+import { scrubSecrets, type SecretValueSet } from "../secrets/scrub.js";
 import { truncateUtf16Safe } from "../utils.js";
 import { collectTextContentBlocks } from "./content-blocks.js";
 import { type MessagingToolSend } from "./pi-embedded-messaging.js";
@@ -83,7 +84,7 @@ function extractErrorField(value: unknown): string | undefined {
   return normalizeToolErrorText(status);
 }
 
-export function sanitizeToolResult(result: unknown): unknown {
+export function sanitizeToolResult(result: unknown, secretScrub?: SecretValueSet): unknown {
   if (!result || typeof result !== "object") {
     return result;
   }
@@ -99,7 +100,12 @@ export function sanitizeToolResult(result: unknown): unknown {
     const entry = item as Record<string, unknown>;
     const type = typeof entry.type === "string" ? entry.type : undefined;
     if (type === "text" && typeof entry.text === "string") {
-      return { ...entry, text: truncateToolText(entry.text) };
+      let text = truncateToolText(entry.text);
+      // Scrub secrets from text content after truncation.
+      if (secretScrub && secretScrub.sortedValues.length > 0) {
+        text = scrubSecrets(text, secretScrub).text;
+      }
+      return { ...entry, text };
     }
     if (type === "image") {
       const data = typeof entry.data === "string" ? entry.data : undefined;

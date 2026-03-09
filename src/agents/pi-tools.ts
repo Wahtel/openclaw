@@ -255,6 +255,8 @@ export function createOpenClawCodingTools(options?: {
   disableMessageTool?: boolean;
   /** Whether the sender is an owner (required for owner-only tools). */
   senderIsOwner?: boolean;
+  /** Optional sensitive path guard for blocking reads of credential files. */
+  sensitivePathGuard?: import("./sensitive-path-guard.js").SensitivePathGuard;
 }): AnyAgentTool[] {
   const execToolName = "exec";
   const sandbox = options?.sandbox?.enabled ? options.sandbox : undefined;
@@ -560,6 +562,7 @@ export function createOpenClawCodingTools(options?: {
       sessionId: options?.sessionId,
       runId: options?.runId,
       loopDetection: resolveToolLoopDetectionConfig({ cfg: options?.config, agentId }),
+      sensitivePathGuard: options?.sensitivePathGuard,
     }),
   );
   const withAbort = options?.abortSignal

@@ -35,6 +35,8 @@ export type SubscribeEmbeddedPiSessionParams = {
   sessionId?: string;
   /** Agent identity for hook context — resolved from session config in attempt.ts. */
   agentId?: string;
+  /** Optional secret value set for scrubbing tool output before it enters model context. */
+  secretScrub?: import("../secrets/scrub.js").SecretValueSet;
 };
 
 export type { BlockReplyChunking } from "./pi-embedded-block-chunker.js";

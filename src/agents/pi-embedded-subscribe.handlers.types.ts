@@ -86,6 +86,8 @@ export type EmbeddedPiSubscribeContext = {
   blockChunking?: BlockReplyChunking;
   blockChunker: EmbeddedBlockChunker | null;
   hookRunner?: HookRunner;
+  /** Secret value set for scrubbing tool output before it enters model context. */
+  secretScrub?: import("../secrets/scrub.js").SecretValueSet;
   noteLastAssistant: (msg: AgentMessage) => void;
 
   shouldEmitToolResult: () => boolean;
@@ -162,6 +164,8 @@ export type ToolHandlerContext = {
   state: ToolHandlerState;
   log: EmbeddedSubscribeLogger;
   hookRunner?: HookRunner;
+  /** Optional secret value set for scrubbing tool output before it enters model context. */
+  secretScrub?: import("../secrets/scrub.js").SecretValueSet;
   flushBlockReplyBuffer: () => void;
   shouldEmitToolResult: () => boolean;
   shouldEmitToolOutput: () => boolean;

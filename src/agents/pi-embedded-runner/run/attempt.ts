@@ -20,6 +20,7 @@ import type {
   PluginHookBeforePromptBuildResult,
 } from "../../../plugins/types.js";
 import { isSubagentSessionKey } from "../../../routing/session-key.js";
+import { buildSecretValueSet } from "../../../secrets/scrub.js";
 import { joinPresentTextSegments } from "../../../shared/text/join-segments.js";
 import { resolveSignalReactionLevel } from "../../../signal/reaction-level.js";
 import { resolveTelegramInlineButtonsScope } from "../../../telegram/inline-buttons.js";
@@ -71,6 +72,7 @@ import { createOpenClawCodingTools, resolveToolLoopDetectionConfig } from "../..
 import { resolveSandboxContext } from "../../sandbox.js";
 import { resolveSandboxRuntimeStatus } from "../../sandbox/runtime-status.js";
 import { isXaiProvider } from "../../schema/clean-for-xai.js";
+import { createSensitivePathGuard } from "../../sensitive-path-guard.js";
 import { repairSessionFileIfNeeded } from "../../session-file-repair.js";
 import { guardSessionManager } from "../../session-tool-result-guard-wrapper.js";
 import { sanitizeToolUseResultPairing } from "../../session-transcript-repair.js";
@@ -840,6 +842,15 @@ export async function runEmbeddedAttempt(
       config: params.config,
       sessionAgentId,
     });
+    // --- Security: build guards for this session ---
+    const sensitivePathGuard = createSensitivePathGuard(
+      params.config?.security?.sensitivePathGuard,
+    );
+    const secretScrub = buildSecretValueSet({
+      env: process.env as Record<string, string | undefined>,
+      extraSecretNames: params.config?.security?.scrubSecretNames,
+    });
+
     // Check if the model supports native image input
     const modelHasVision = params.model.input?.includes("image") ?? false;
     const toolsRaw = params.disableTools
@@ -884,6 +895,7 @@ export async function runEmbeddedAttempt(
           requireExplicitMessageTarget:
             params.requireExplicitMessageTarget ?? isSubagentSessionKey(params.sessionKey),
           disableMessageTool: params.disableMessageTool,
+          sensitivePathGuard,
         });
     const toolsEnabled = supportsModelTools(params.model);
     const tools = sanitizeToolsForGoogle({
@@ -1531,6 +1543,7 @@ export async function runEmbeddedAttempt(
         sessionKey: sandboxSessionKey,
         sessionId: params.sessionId,
         agentId: sessionAgentId,
+        secretScrub,
       });
 
       const {
