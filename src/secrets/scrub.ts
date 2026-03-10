@@ -44,6 +44,8 @@ function matchesAnyPattern(key: string, patterns: readonly RegExp[]): boolean {
 export function buildSecretValueSet(params: {
   env?: Record<string, string | undefined>;
   extraSecretNames?: string[];
+  /** Explicit secret values to scrub (e.g. from auth-profiles). */
+  extraSecretValues?: Array<{ name: string; value: string }>;
   minLength?: number;
 }): SecretValueSet {
   const entries = new Map<string, string>();
@@ -64,6 +66,15 @@ export function buildSecretValueSet(params: {
   if (params.extraSecretNames) {
     for (const name of params.extraSecretNames) {
       const value = env[name];
+      if (value && value.length >= minLength) {
+        entries.set(name, value);
+      }
+    }
+  }
+
+  // Add explicit secret values (e.g. from auth-profiles.json).
+  if (params.extraSecretValues) {
+    for (const { name, value } of params.extraSecretValues) {
       if (value && value.length >= minLength) {
         entries.set(name, value);
       }

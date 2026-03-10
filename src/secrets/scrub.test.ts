@@ -92,6 +92,35 @@ describe("buildSecretValueSet", () => {
     });
     expect(set.entries.has("DB_PASSWORD")).toBe(true);
   });
+
+  it("collects explicit extraSecretValues", () => {
+    const set = buildSecretValueSet({
+      extraSecretValues: [
+        { name: "auth:openai:default", value: "sk-proj-abc123456789" },
+        { name: "auth:anthropic:default", value: "sk-ant-api-key-xyz" },
+      ],
+    });
+    expect(set.entries.has("auth:openai:default")).toBe(true);
+    expect(set.entries.has("auth:anthropic:default")).toBe(true);
+    expect(set.entries.get("auth:openai:default")).toBe("sk-proj-abc123456789");
+  });
+
+  it("skips extraSecretValues shorter than minLength", () => {
+    const set = buildSecretValueSet({
+      extraSecretValues: [{ name: "auth:short", value: "abc" }],
+    });
+    expect(set.entries.has("auth:short")).toBe(false);
+  });
+
+  it("merges env vars and extraSecretValues", () => {
+    const set = buildSecretValueSet({
+      env: { OPENAI_API_KEY: "sk-env-1234567890" },
+      extraSecretValues: [{ name: "auth:openai:default", value: "sk-profile-abc123456789" }],
+    });
+    expect(set.entries.has("OPENAI_API_KEY")).toBe(true);
+    expect(set.entries.has("auth:openai:default")).toBe(true);
+    expect(set.sortedValues.length).toBe(2);
+  });
 });
 
 describe("scrubSecrets", () => {
@@ -160,6 +189,30 @@ describe("scrubSecrets", () => {
     });
     const result = scrubSecrets("key=key-abc-123456 pass=pass-xyz-789012", secrets);
     expect(result.text).toBe("key=[REDACTED:API_KEY] pass=[REDACTED:DB_PASSWORD]");
+    expect(result.redactedNames).toHaveLength(2);
+  });
+});
+
+describe("scrubSecrets with extraSecretValues", () => {
+  it("scrubs auth-profile secrets from text", () => {
+    const secrets = buildSecretValueSet({
+      extraSecretValues: [{ name: "auth:anthropic:default", value: "sk-ant-api03-xyzSecret" }],
+    });
+    const result = scrubSecrets("API key is sk-ant-api03-xyzSecret in output", secrets);
+    expect(result.text).toBe("API key is [REDACTED:auth:anthropic:default] in output");
+    expect(result.redacted).toBe(true);
+    expect(result.redactedNames).toContain("auth:anthropic:default");
+  });
+
+  it("scrubs both env and auth-profile secrets", () => {
+    const secrets = buildSecretValueSet({
+      env: { OPENAI_API_KEY: "sk-env-key-123456" },
+      extraSecretValues: [{ name: "auth:openai:profile", value: "sk-profile-key-789012" }],
+    });
+    const result = scrubSecrets("env=sk-env-key-123456 profile=sk-profile-key-789012", secrets);
+    expect(result.text).toBe(
+      "env=[REDACTED:OPENAI_API_KEY] profile=[REDACTED:auth:openai:profile]",
+    );
     expect(result.redactedNames).toHaveLength(2);
   });
 });

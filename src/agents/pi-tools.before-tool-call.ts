@@ -3,7 +3,11 @@ import type { SessionState } from "../logging/diagnostic-session-state.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
 import { getGlobalHookRunner } from "../plugins/hook-runner-global.js";
 import { isPlainObject } from "../utils.js";
-import type { SensitivePathGuard } from "./sensitive-path-guard.js";
+import {
+  extractPathFromToolCall,
+  execCommandReferencesSensitivePath,
+  type SensitivePathGuard,
+} from "./sensitive-path-guard.js";
 import { normalizeToolName } from "./tool-policy.js";
 import type { AnyAgentTool } from "./tools/common.js";
 
@@ -152,8 +156,6 @@ export async function runBeforeToolCallHook(args: {
 
   // Core sensitive path guard — runs before plugin hooks.
   if (args.ctx?.sensitivePathGuard) {
-    const { extractPathFromToolCall, execCommandReferencesSensitivePath } =
-      await import("./sensitive-path-guard.js");
     const filePath = extractPathFromToolCall(toolName, params);
     if (filePath) {
       // For exec-style tools, check if command references sensitive paths.

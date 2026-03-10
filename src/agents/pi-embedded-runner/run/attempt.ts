@@ -32,6 +32,7 @@ import { isReasoningTagProvider } from "../../../utils/provider-utils.js";
 import { resolveOpenClawAgentDir } from "../../agent-paths.js";
 import { resolveSessionAgentIds } from "../../agent-scope.js";
 import { createAnthropicPayloadLogger } from "../../anthropic-payload-log.js";
+import { loadAuthProfileStoreForSecretsRuntime } from "../../auth-profiles/store.js";
 import {
   analyzeBootstrapBudget,
   buildBootstrapPromptWarning,
@@ -846,9 +847,31 @@ export async function runEmbeddedAttempt(
     const sensitivePathGuard = createSensitivePathGuard(
       params.config?.security?.sensitivePathGuard,
     );
+    // Collect secret values from auth-profiles so they can be redacted from tool output.
+    const authSecrets: Array<{ name: string; value: string }> = [];
+    try {
+      const store = loadAuthProfileStoreForSecretsRuntime();
+      for (const [profileName, cred] of Object.entries(store.profiles)) {
+        if (cred.type === "api_key" && cred.key) {
+          authSecrets.push({ name: `auth:${profileName}`, value: cred.key });
+        } else if (cred.type === "token" && cred.token) {
+          authSecrets.push({ name: `auth:${profileName}`, value: cred.token });
+        } else if (cred.type === "oauth") {
+          if (cred.access) {
+            authSecrets.push({ name: `auth:${profileName}:access`, value: cred.access });
+          }
+          if (cred.refresh) {
+            authSecrets.push({ name: `auth:${profileName}:refresh`, value: cred.refresh });
+          }
+        }
+      }
+    } catch {
+      // auth-profiles may not exist yet — env-var scrubbing still works.
+    }
     const secretScrub = buildSecretValueSet({
       env: process.env as Record<string, string | undefined>,
       extraSecretNames: params.config?.security?.scrubSecretNames,
+      extraSecretValues: authSecrets,
     });
 
     // Check if the model supports native image input
