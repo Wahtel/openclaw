@@ -144,6 +144,13 @@ describe("extractPathFromToolCall", () => {
     expect(extractPathFromToolCall("read", { filePath: "/etc/passwd" })).toBe("/etc/passwd");
   });
 
+  it("extracts file_path (Claude Code-style alias) from file tools", () => {
+    expect(extractPathFromToolCall("read", { file_path: "/etc/passwd" })).toBe("/etc/passwd");
+    expect(extractPathFromToolCall("write", { file_path: "/etc/shadow" })).toBe("/etc/shadow");
+    expect(extractPathFromToolCall("edit", { file_path: "~/.ssh/id_rsa" })).toBe("~/.ssh/id_rsa");
+    expect(extractPathFromToolCall("apply_patch", { file_path: "/tmp/x" })).toBe("/tmp/x");
+  });
+
   it("extracts path from write/edit tools", () => {
     expect(extractPathFromToolCall("write", { path: "/tmp/out.txt" })).toBe("/tmp/out.txt");
     expect(extractPathFromToolCall("edit", { path: "/tmp/out.txt" })).toBe("/tmp/out.txt");

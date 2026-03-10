@@ -176,7 +176,9 @@ export function extractPathFromToolCall(toolName: string, params: unknown): stri
     normalized === "edit" ||
     normalized === "apply_patch"
   ) {
-    const p = record.path ?? record.file ?? record.filePath;
+    // Also check file_path (Claude Code-style alias) — the before-tool-call hook
+    // receives raw model params before normalizeToolParams() converts file_path → path.
+    const p = record.path ?? record.file_path ?? record.file ?? record.filePath;
     return typeof p === "string" ? p : undefined;
   }
 
