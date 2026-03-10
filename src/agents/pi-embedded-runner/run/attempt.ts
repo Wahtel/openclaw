@@ -919,6 +919,7 @@ export async function runEmbeddedAttempt(
             params.requireExplicitMessageTarget ?? isSubagentSessionKey(params.sessionKey),
           disableMessageTool: params.disableMessageTool,
           sensitivePathGuard,
+          secretScrub,
         });
     const toolsEnabled = supportsModelTools(params.model);
     const tools = sanitizeToolsForGoogle({

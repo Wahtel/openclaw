@@ -40,6 +40,7 @@ import {
   wrapToolWorkspaceRootGuardWithOptions,
   wrapToolParamNormalization,
 } from "./pi-tools.read.js";
+import { wrapToolWithResultScrubbing } from "./pi-tools.result-scrub.js";
 import { cleanToolSchemaForGemini, normalizeToolParameters } from "./pi-tools.schema.js";
 import type { AnyAgentTool } from "./pi-tools.types.js";
 import type { SandboxContext } from "./sandbox.js";
@@ -257,6 +258,8 @@ export function createOpenClawCodingTools(options?: {
   senderIsOwner?: boolean;
   /** Optional sensitive path guard for blocking reads of credential files. */
   sensitivePathGuard?: import("./sensitive-path-guard.js").SensitivePathGuard;
+  /** Optional secret scrub set for redacting secrets from tool results before model sees them. */
+  secretScrub?: import("../secrets/scrub.js").SecretValueSet;
 }): AnyAgentTool[] {
   const execToolName = "exec";
   const sandbox = options?.sandbox?.enabled ? options.sandbox : undefined;
@@ -569,8 +572,15 @@ export function createOpenClawCodingTools(options?: {
     ? withHooks.map((tool) => wrapToolWithAbortSignal(tool, options.abortSignal))
     : withHooks;
 
+  // Outermost wrapper: scrub secrets from tool results before the pi-agent
+  // stores them in conversation history.  Without this the model sees raw
+  // API keys / tokens in subsequent turns.
+  const withScrub = options?.secretScrub
+    ? withAbort.map((tool) => wrapToolWithResultScrubbing(tool, options.secretScrub!))
+    : withAbort;
+
   // NOTE: Keep canonical (lowercase) tool names here.
   // pi-ai's Anthropic OAuth transport remaps tool names to Claude Code-style names
   // on the wire and maps them back for tool dispatch.
-  return withAbort;
+  return withScrub;
 }
